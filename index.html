@@ -1,3 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sowa Rigpa Omens Severity Sorter</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* CSS adapted from styles.css */
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f9fc; /* Very light blue-gray background */
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+        }
+
+        .app-container {
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            width: 95%; /* Responsive width */
+        }
+
+        /* Header */
+        .app-header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #e0e7ff;
+            padding-bottom: 15px;
+        }
+
+        .app-header h1 {
+            font-size: clamp(1.5rem, 4vw, 2.5rem);
+            color: #4f46e5; /* Indigo */
+            margin: 0;
+        }
+
+        .app-header p {
+            color: #6b7280;
+            font-size: clamp(0.9rem, 1.5vw, 1rem);
+            margin-top: 5px;
+        }
+
+        /* Omen List (Unsorted) */
+        .unsorted-title {
+            font-size: clamp(1.2rem, 2vw, 1.5rem);
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        .unsorted-list {
+            min-height: 120px;
+            border: 2px dashed #9ca3af;
+            border-radius: 8px;
+            padding: 10px;
+            background-color: #e5e7eb;
+            margin-bottom: 30px;
+            display: flex;
+            flex-wrap: wrap;
+            align-content: flex-start;
+            gap: 8px;
+        }
+
+        /* Dragging Item Style */
+        .omen-item {
+            cursor: grab;
+            padding: 8px 12px;
+            border-radius: 6px;
+            background-color: #fff;
+            border: 1px solid #d1d5db;
+            font-size: 0.9rem;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            transition: background-color 0.2s, transform 0.2s;
+            max-width: 100%; /* Ensure responsiveness */
+        }
+
+        .omen-item:hover {
+            background-color: #f3f4f6;
+            transform: translateY(-1px);
+        }
+
+        .dragging {
+            opacity: 0.5;
+            border: 2px dashed #4f46e5;
+        }
+
+        /* Drop Zone Grid */
+        .drop-zones-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        @media (max-width: 1024px) {
+            .drop-zones-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 600px) {
+            .drop-zones-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Drop Zone Containers */
+        .drop-zone {
+            min-height: 200px;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            transition: border-color 0.2s;
+        }
+
+        .zone-header {
+            font-weight: 700;
+            font-size: 1.1rem;
+            padding-bottom: 8px;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+            margin-bottom: 10px;
+        }
+
+        /* Specific Zone Colors */
+        .zone-distant {
+            background-color: #ecfdf5; /* Light Green */
+            border: 3px solid #10b981; /* Green */
+        }
+        .zone-distant .zone-header {
+            color: #10b981;
+        }
+
+        .zone-uncertain {
+            background-color: #fefce8; /* Light Yellow */
+            border: 3px solid #f59e0b; /* Amber */
+        }
+        .zone-uncertain .zone-header {
+            color: #f59e0b;
+        }
+
+        .zone-certain {
+            background-color: #fef2f2; /* Light Red */
+            border: 3px solid #ef4444; /* Red */
+        }
+        .zone-certain .zone-header {
+            color: #ef4444;
+        }
+
+        .zone-extremely-imminent {
+            background-color: #f0e6f7; /* Light Purple */
+            border: 3px solid #8b5cf6; /* Violet */
+        }
+        .zone-extremely-imminent .zone-header {
+            color: #8b5cf6;
+        }
+
+        /* Validation Feedback */
+        .correct-answer {
+            background-color: #d1fae5; /* Very Light Green */
+            border: 1px solid #10b981 !important; /* Use !important for override */
+        }
+
+        .incorrect-answer {
+            background-color: #fee2e2; /* Very Light Red */
+            border: 1px solid #ef4444 !important;
+            animation: shake 0.5s;
+        }
+
+        @keyframes shake {
+            0% { transform: translateX(0); }
+            20% { transform: translateX(-5px); }
+            40% { transform: translateX(5px); }
+            60% { transform: translateX(-5px); }
+            80% { transform: translateX(5px); }
+            100% { transform: translateX(0); }
+        }
+
+        /* Buttons and Controls */
+        .controls {
+            margin-top: 30px;
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+        }
+
+        .control-button {
+            padding: 12px 25px;
+            font-size: 1rem;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.2s, box-shadow 0.2s;
+            border: none;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .check-button {
+            background-color: #4f46e5; /* Indigo */
+            color: white;
+        }
+
+        .check-button:hover {
+            background-color: #4338ca;
+            box-shadow: 0 6px 8px rgba(79, 70, 229, 0.3);
+        }
+
+        .reset-button {
+            background-color: #f3f4f6;
+            color: #4b5563;
+            border: 1px solid #d1d5db;
+        }
+
+        .reset-button:hover {
+            background-color: #e5e7eb;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
+        }
+
+        /* Score Display */
+        .score-display {
+            text-align: center;
+            margin-top: 25px;
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #1f2937;
+            padding: 15px;
+            border-radius: 8px;
+            background-color: #e0f2fe; /* Light blue */
+            border: 1px solid #38bdf8;
+        }
+
+        .score-text {
+            color: #1d4ed8; /* Darker blue */
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <header class="app-header">
+            <h1>Sowa Rigpa Omens Severity Sorter</h1>
+            <p>Drag each omen into the correct category (Distant, Uncertain, Certain, or Extremely Imminent).</p>
+        </header>
+
+        <main>
+            <div class="unsorted-title">Omens to Sort (20/73)</div>
+            <div id="unsorted-container" class="unsorted-list" ondragover="allowDrop(event)" ondrop="drop(event, 'Unsorted')">
+                <!-- Omens will be injected here by JavaScript -->
+            </div>
+
+            <div class="drop-zones-grid">
+                <!-- Distant Omens -->
+                <div id="Distant" class="drop-zone zone-distant" ondragover="allowDrop(event)" ondrop="drop(event, 'Distant')">
+                    <div class="zone-header">1. Distant Omens (Least Severe)</div>
+                </div>
+
+                <!-- Uncertain Omens -->
+                <div id="Uncertain" class="drop-zone zone-uncertain" ondragover="allowDrop(event)" ondrop="drop(event, 'Uncertain')">
+                    <div class="zone-header">2. Uncertain Omens</div>
+                </div>
+
+                <!-- Certain Omens -->
+                <div id="Certain" class="drop-zone zone-certain" ondragover="allowDrop(event)" ondrop="drop(event, 'Certain')">
+                    <div class="zone-header">3. Certain Omens</div>
+                </div>
+
+                <!-- Extremely Imminent Omens -->
+                <div id="Extremely Imminent" class="drop-zone zone-extremely-imminent" ondragover="allowDrop(event)" ondrop="drop(event, 'Extremely Imminent')">
+                    <div class="zone-header">4. Extremely Imminent Omens (Most Severe)</div>
+                </div>
+            </div>
+
+            <div class="controls">
+                <button class="control-button check-button" onclick="checkAnswers()">Check Answers</button>
+                <button class="control-button reset-button" onclick="resetQuiz()">Reset Quiz</button>
+            </div>
+
+            <div id="score-output" class="score-display" style="display: none;"></div>
+        </main>
+    </div>
+
+    <script>
+        // Data and Logic for the 73 Omens Sorter
+
+        const OMEN_DATA = {"Distant": ["Remarkable messenger, monk, or anyone attractive & amiable indicates recovery.", "Messenger approaches in a state of fright or grasping for breath indicates non-recovery.", "Messenger carrying a stone or a stick indicates non-recovery.", "Messenger calls from a distance indicates non-recovery.", "Messenger indulges in non-virtuous actions indicates non-recovery.", "Messenger has put on inauspicious ornaments indicates non-recovery.", "Messenger utters inauspicious words indicates non-recovery.", "Messenger arrives when the doctor is in a state of mental disturbance.", "Messenger arrives when the doctor is uttering inauspicious words.", "Messenger arrives when the doctor is cutting or dismantling any object.", "Messenger arrives when the doctor is offering torma and performing rituals for the dead.", "Doctor sets out on the 6th, 4th, or 9th day of the lunar calendar.", "Doctor sets out on the day of the solar or lunar eclipses.", "Doctor sets out on unfavorable days or under planetary influences.", "Doctor sets out during the night.", "On the way, hearing/seeing something being cut into pieces.", "On the way, hearing/seeing something being burnt or broken.", "On the way, hearing/seeing someone crying or bewailing a murder.", "An animal (cat, monkey, otter, or snake) crosses the path.", "Witnessing anything unpleasant or inauspicious on the way.", "Sees a vessel full of grains while en route (favorable).", "Sees curds while en route (favorable).", "Sees ritual bells while en route (favorable).", "Sees butter lamps being lighted while en route (favorable).", "Sees blossoming flowers while en route (favorable).", "Sees popped rice or cooked tsampa while en route (favorable).", "Sees a statue of a God while en route (favorable).", "Sees horses, sheep, or cows with their young ones while en route (favorable).", "Coming across pleasant sounds, food, drink, and ornaments while en route (favorable)."], "Uncertain": ["Omens of impending death appear in various forms of disorders.", "Omens of impending death disappear once the disorder is pacified (favorable outcome).", "Omens of impending death remain intact even after the disorder is pacified (Certain Death)."], "Certain": ["If the messenger arrives at the doctor's place when the doctor is cutting or dismantling any object.", "If the messenger arrives when the doctor is offering torma and performing rituals of burning articles for the dead.", "While entering the patient’s house, physician encounters curd, trum, or any auspicious articles being taken away.", "While entering, physician comes across a lamp being blown out in the absence of wind.", "While entering, physician comes across a vessel being broken.", "Patient dreams of riding a cat, monkey, tiger, fox, or a corpse.", "Patient dreams of riding a buffalo, horse, pig, donkey, or camel without clothing and heading south.", "Patient dreams of a willow tree with a bird nest growing from the crown of the head.", "Patient dreams of palmyra (palm) or any thorny tree growing from one’s heart.", "Patient dreams of dislodging a lotus from one’s heart.", "Patient dreams of falling down a precipice.", "Patient dreams of sleeping at a cemetery.", "Patient dreams of injury to one’s head.", "Patient dreams of being encircled by crows.", "Patient dreams of hungry ghosts or a person of lowly birth.", "Patient dreams of skin falling off the limbs.", "Patient dreams of entering back into the mother’s womb.", "Patient dreams of being drowned.", "Patient dreams of falling into quicksand.", "Patient dreams of being swallowed by a fish.", "Patient dreams of finding abundant iron, gold, or money.", "Patient dreams of loss in business transactions or fights.", "Patient dreams of being pursued for non-payment of food.", "Patient dreams of bringing a bride.", "Patient dreams of being naked.", "Patient dreams of cutting hair or shaving one’s beard.", "Patient dreams of drinking chhang with deceased relative or being dragged by them.", "Patient dreams of wearing a dress or ornament of red color.", "Patient dreams of dancing with a deceased relative.", "Patient begins to dislike the physician, medicine, or spiritual master without reason.", "Patient abruptly becomes more cultured, attractive, wealthy, and famous, or vice versa.", "Patient continues to lose physical radiance and is depressed all the time.", "Patient's ritual cake is declined when offered to the crows.", "Bleeding from the 9 orifices of the body without the influences of poison or weapons.", "Completely forgetting what was just mentioned.", "Retraction of the penis with a flaccid scrotum or vice versa.", "Experiencing an unusual sound while coughing or sneezing.", "Not smelling the smoke of a blown-out butter lamp.", "Not being able to feel the hair being stroked.", "Feeling as if the crown of the head is greasy.", "The appearance of a new part in the hair and eyebrows.", "The formation of tsubkyil (whirled hair).", "Appearance of a crescent vein like the shape of the new moon on the forehead and near the genital region.", "Sudden disturbances in the 5 sensory organs resulting in wrong perception.", "Not being able to see the forearm while placing one’s hand over the forehead.", "Absence of glowing light while pressing the eyes.", "Staring with fixed eyes like a frightened rabbit.", "Retraction of the eyes into their sockets and instant loss of lustre in the pupils.", "Ears sticking towards the back.", "Absence of sound from the covered ears.", "Not being able to observe the shadow of escaping vapour from the fontanel.", "Widening of the nostrils.", "Formation of nasal crust.", "Darkening of the medial surface of the tongue.", "Drying and shortening of the tongue with the loss of speech.", "Lower lip dangling with the upper lip raised.", "Appearance of wan complexion.", "Cooling of one’s breath.", "Formation of black stains on the teeth.", "Breathlessness on exertion and a total loss of body heat.", "Feeling of high fever on a very cold body.", "Avoidance of heat while the body is struck with severe cold.", "Avoidance of cold while the body is extremely hot.", "Lack of response to curative measures and a feeling of wellness when inappropriate treatment is given.", "Cannot find one’s shadow in the morning sun or image in a mirror, still water, or clear sky.", "Image appears without head or limbs in a reflection.", "Health deteriorates in spite of a good diet.", "Body odor changes.", "Sudden increase in desire, hatred, and delusion.", "Virtuous qualities suddenly turn faulty, or flaws turn to virtuous qualities, without reason.", "Patient loses the outer (muscles), inner (nutrients), and vital life force (channels).", "No response to any amount of therapeutic and curative measures."], "Extremely Imminent": ["When the element Earth dissolves into the element Water, one loses the sense of sight.", "When the element of Water dissolves into the element of Fire, all body orifices get dry.", "When the element Fire dissolves into the element Air, it results in the loss of body heat.", "When the element Air dissolves into the element Space, breathing stops.", "When the faculty of sight degenerates, vision will be lost and it dissolves into the sense of sound.", "When the auditory faculty degenerates, hearing will be lost and it dissolves into the sense of smell.", "When the olfactory faculty degenerates, smell will be lost and it dissolves into the sense of taste.", "When gustatory faculty degenerates, taste will be lost and it dissolves into the sense of touch.", "When the tactile faculty degenerates, the body ceases to experience the sense of touch."]}
+
+        let currentOmens = [];
+        let scoreMessage = '';
+
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+
+        function generateUniqueId() {
+            return '_' + Math.random().toString(36).substr(2, 9);
+        }
+
+        function loadQuiz() {
+            // Clear all containers
+            document.getElementById('unsorted-container').innerHTML = '';
+            document.getElementById('score-output').style.display = 'none';
+
+            // Get categories and ensure unique item is picked from each
+            const categories = Object.keys(OMEN_DATA);
+            const selectedOmens = [];
+            const selectedCount = 20;
+
+            // Strategy: Ensure at least one from each major category, then fill remaining 
+            const minPerCategory = 2; // Guarantee at least 2 from each to start (4*2=8)
+
+            // 1. Pick minimum required from each category
+            categories.forEach(category => {
+                const data = OMEN_DATA[category];
+                shuffleArray(data);
+                for (let i = 0; i < minPerCategory && i < data.length; i++) {
+                    selectedOmens.push({
+                        id: generateUniqueId(),
+                        text: data[i],
+                        category: category
+                    });
+                }
+            });
+
+            // 2. Fill the rest randomly until 20 omens are selected
+            let allOmensPool = [];
+            categories.forEach(category => {
+                OMEN_DATA[category].forEach(omenText => {
+                    // Only add if not already selected (check against text)
+                    if (!selectedOmens.find(o => o.text === omenText)) {
+                        allOmensPool.push({
+                            id: generateUniqueId(),
+                            text: omenText,
+                            category: category
+                        });
+                    }
+                });
+            });
+
+            shuffleArray(allOmensPool);
+            
+            // Add remaining omens to meet the 20 target
+            let remainingNeeded = selectedCount - selectedOmens.length;
+            if (remainingNeeded > 0) {
+                selectedOmens.push(...allOmensPool.slice(0, remainingNeeded));
+            }
+
+            // Shuffle the final list for presentation
+            shuffleArray(selectedOmens);
+            currentOmens = selectedOmens;
+
+            // Render to unsorted container
+            const unsortedContainer = document.getElementById('unsorted-container');
+            currentOmens.forEach(omen => {
+                const item = document.createElement('div');
+                item.className = 'omen-item';
+                item.setAttribute('draggable', 'true');
+                item.setAttribute('id', omen.id);
+                item.setAttribute('data-category', omen.category);
+                item.textContent = omen.text;
+                item.ondragstart = drag;
+                unsortedContainer.appendChild(item);
+            });
+        }
+
+        function drag(ev) {
+            ev.dataTransfer.setData("text", ev.target.id);
+            ev.target.classList.add('dragging');
+        }
+
+        function allowDrop(ev) {
+            ev.preventDefault();
+        }
+
+        function drop(ev, targetCategory) {
+            ev.preventDefault();
+            const data = ev.dataTransfer.getData("text");
+            const draggedElement = document.getElementById(data);
+
+            if (draggedElement) {
+                // Remove dragging class immediately after drop
+                draggedElement.classList.remove('dragging');
+
+                // Determine the correct drop target element (it might be an item inside the drop zone)
+                let dropZone = ev.target;
+                while (dropZone && !dropZone.classList.contains('drop-zone') && dropZone.id !== 'unsorted-container') {
+                    dropZone = dropZone.parentElement;
+                }
+
+                if (dropZone) {
+                    dropZone.appendChild(draggedElement);
+                }
+            }
+        }
+
+        function checkAnswers() {
+            let correctCount = 0;
+            let totalCount = 0;
+
+            const scoreOutput = document.getElementById('score-output');
+
+            currentOmens.forEach(omen => {
+                const element = document.getElementById(omen.id);
+                if (element) {
+                    totalCount++;
+                    const parentCategory = element.parentElement.id;
+                    const correctCategory = omen.category;
+
+                    element.classList.remove('correct-answer', 'incorrect-answer');
+
+                    if (parentCategory === correctCategory) {
+                        element.classList.add('correct-answer');
+                        correctCount++;
+                    } else if (parentCategory !== 'unsorted-container') {
+                        element.classList.add('incorrect-answer');
+                    }
+                }
+            });
+
+            // Display Score
+            if (totalCount > 0) {
+                const scoreText = `<span class="score-text">Score: ${correctCount} / ${totalCount} Correct</span>`;
+                scoreOutput.innerHTML = scoreText;
+                scoreOutput.style.display = 'block';
+            }
+        }
+
+        function resetQuiz() {
+            // Clear all drop zones
+            document.querySelectorAll('.drop-zone').forEach(zone => {
+                zone.innerHTML = `<div class="zone-header">${zone.id}. Omens</div>`;
+                if (zone.id === 'Distant') zone.innerHTML = `<div class="zone-header">1. Distant Omens (Least Severe)</div>`;
+                if (zone.id === 'Uncertain') zone.innerHTML = `<div class="zone-header">2. Uncertain Omens</div>`;
+                if (zone.id === 'Certain') zone.innerHTML = `<div class="zone-header">3. Certain Omens</div>`;
+                if (zone.id === 'Extremely Imminent') zone.innerHTML = `<div class="zone-header">4. Extremely Imminent Omens (Most Severe)</div>`;
+            });
+            
+            // Reload the quiz
+            loadQuiz();
+        }
+
+        // Initialize the quiz on page load
+        document.addEventListener('DOMContentLoaded', loadQuiz);
+    </script>
+</body>
+</html>
 <!doctype html>
 <html lang="en">
   <head>
